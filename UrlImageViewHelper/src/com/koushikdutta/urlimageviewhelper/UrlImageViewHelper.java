@@ -1,5 +1,19 @@
 package com.koushikdutta.urlimageviewhelper;
 
+import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.Hashtable;
+
+import org.apache.http.NameValuePair;
+
 import android.annotation.TargetApi;
 import android.app.ActivityManager;
 import android.content.Context;
@@ -17,12 +31,6 @@ import android.util.DisplayMetrics;
 import android.util.Log;
 import android.view.WindowManager;
 import android.widget.ImageView;
-import org.apache.http.NameValuePair;
-
-import java.io.*;
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.Hashtable;
 
 public final class UrlImageViewHelper {
     static void clog(String format, Object... args) {
@@ -83,7 +91,7 @@ public final class UrlImageViewHelper {
         return mUseBitmapScaling;
     }
 
-    private static Bitmap loadBitmapFromStream(final Context context, final String url, final String filename, final int targetWidth, final int targetHeight) {
+    private static Bitmap loadBitmapFromStream(final Context context, final String url, final String filename, final int targetWidth, final int targetHeight, boolean useLargerImage) {
         prepareResources(context);
 
 //        Log.v(Constants.LOGTAG,targetWidth);
@@ -101,6 +109,11 @@ public final class UrlImageViewHelper {
                 int scale = 0;
                 while ((o.outWidth >> scale) > targetWidth || (o.outHeight >> scale) > targetHeight) {
                     scale++;
+                }
+                if (useLargerImage) {
+                	if ((o.outWidth >> scale) < targetWidth || (o.outHeight >> scale) < targetHeight) {
+                		--scale;
+                	}
                 }
                 o = new Options();
                 o.inSampleSize = 1 << scale;
@@ -141,8 +154,8 @@ public final class UrlImageViewHelper {
      * @param defaultResource The Android resid of the {@link Drawable} that
      *            should be displayed while the image is being downloaded.
      */
-    public static void setUrlDrawable(final ImageView imageView, final String url, final int defaultResource) {
-        setUrlDrawable(imageView.getContext(), imageView, url, defaultResource, CACHE_DURATION_THREE_DAYS);
+    public static void setUrlDrawable(final ImageView imageView, final String url, final int defaultResource, boolean... useLargerPicture) {
+        setUrlDrawable(imageView.getContext(), imageView, url, defaultResource, CACHE_DURATION_THREE_DAYS, useLargerPicture.length > 0 ? useLargerPicture[0] : false);
     }
 
     /**
@@ -153,12 +166,12 @@ public final class UrlImageViewHelper {
      *            is loaded.
      * @param url The URL of the image that should be loaded.
      */
-    public static void setUrlDrawable(final ImageView imageView, final String url) {
-        setUrlDrawable(imageView.getContext(), imageView, url, null, CACHE_DURATION_THREE_DAYS, null);
+    public static void setUrlDrawable(final ImageView imageView, final String url, boolean... useLargerPicture) {
+        setUrlDrawable(imageView.getContext(), imageView, url, null, CACHE_DURATION_THREE_DAYS, null, useLargerPicture.length > 0 ? useLargerPicture[0] : false);
     }
 
-    public static void loadUrlDrawable(final Context context, final String url) {
-        setUrlDrawable(context, null, url, null, CACHE_DURATION_THREE_DAYS, null);
+    public static void loadUrlDrawable(final Context context, final String url, boolean... useLargerPicture) {
+        setUrlDrawable(context, null, url, null, CACHE_DURATION_THREE_DAYS, null, useLargerPicture.length > 0 ? useLargerPicture[0] : false);
     }
 
     /**
@@ -173,8 +186,8 @@ public final class UrlImageViewHelper {
      *            image will also be displayed if the image fails to load. This
      *            can be set to {@code null}.
      */
-    public static void setUrlDrawable(final ImageView imageView, final String url, final Drawable defaultDrawable) {
-        setUrlDrawable(imageView.getContext(), imageView, url, defaultDrawable, CACHE_DURATION_THREE_DAYS, null);
+    public static void setUrlDrawable(final ImageView imageView, final String url, final Drawable defaultDrawable, boolean... useLargerPicture) {
+        setUrlDrawable(imageView.getContext(), imageView, url, defaultDrawable, CACHE_DURATION_THREE_DAYS, null, useLargerPicture.length > 0 ? useLargerPicture[0] : false);
     }
 
     /**
@@ -189,12 +202,12 @@ public final class UrlImageViewHelper {
      * @param cacheDurationMs The length of time, in milliseconds, that this
      *            image should be cached locally.
      */
-    public static void setUrlDrawable(final ImageView imageView, final String url, final int defaultResource, final long cacheDurationMs) {
-        setUrlDrawable(imageView.getContext(), imageView, url, defaultResource, cacheDurationMs);
+    public static void setUrlDrawable(final ImageView imageView, final String url, final int defaultResource, final long cacheDurationMs, boolean... useLargerPicture) {
+        setUrlDrawable(imageView.getContext(), imageView, url, defaultResource, cacheDurationMs, useLargerPicture.length > 0 ? useLargerPicture[0] : false);
     }
 
-    public static void loadUrlDrawable(final Context context, final String url, final long cacheDurationMs) {
-        setUrlDrawable(context, null, url, null, cacheDurationMs, null);
+    public static void loadUrlDrawable(final Context context, final String url, final long cacheDurationMs, boolean... useLargerPicture) {
+        setUrlDrawable(context, null, url, null, cacheDurationMs, null, useLargerPicture.length > 0 ? useLargerPicture[0] : false);
     }
 
     /**
@@ -211,8 +224,8 @@ public final class UrlImageViewHelper {
      * @param cacheDurationMs The length of time, in milliseconds, that this
      *            image should be cached locally.
      */
-    public static void setUrlDrawable(final ImageView imageView, final String url, final Drawable defaultDrawable, final long cacheDurationMs) {
-        setUrlDrawable(imageView.getContext(), imageView, url, defaultDrawable, cacheDurationMs, null);
+    public static void setUrlDrawable(final ImageView imageView, final String url, final Drawable defaultDrawable, final long cacheDurationMs, boolean... useLargerPicture) {
+        setUrlDrawable(imageView.getContext(), imageView, url, defaultDrawable, cacheDurationMs, null, useLargerPicture.length > 0 ? useLargerPicture[0] : false);
     }
 
     /**
@@ -229,12 +242,12 @@ public final class UrlImageViewHelper {
      * @param cacheDurationMs The length of time, in milliseconds, that this
      *            image should be cached locally.
      */
-    private static void setUrlDrawable(final Context context, final ImageView imageView, final String url, final int defaultResource, final long cacheDurationMs) {
+    private static void setUrlDrawable(final Context context, final ImageView imageView, final String url, final int defaultResource, final long cacheDurationMs, boolean useLargerPicture) {
         Drawable d = null;
         if (defaultResource != 0) {
             d = imageView.getResources().getDrawable(defaultResource);
         }
-        setUrlDrawable(context, imageView, url, d, cacheDurationMs, null);
+        setUrlDrawable(context, imageView, url, d, cacheDurationMs, null, useLargerPicture);
     }
 
     /**
@@ -250,8 +263,8 @@ public final class UrlImageViewHelper {
      *            called when the image successfully finishes loading. This
      *            value can be null.
      */
-    public static void setUrlDrawable(final ImageView imageView, final String url, final int defaultResource, final UrlImageViewCallback callback) {
-        setUrlDrawable(imageView.getContext(), imageView, url, defaultResource, CACHE_DURATION_THREE_DAYS, callback);
+    public static void setUrlDrawable(final ImageView imageView, final String url, final int defaultResource, final UrlImageViewCallback callback, boolean... useLargerPicture) {
+        setUrlDrawable(imageView.getContext(), imageView, url, defaultResource, CACHE_DURATION_THREE_DAYS, callback, useLargerPicture.length > 0 ? useLargerPicture[0] : false);
     }
 
     /**
@@ -265,12 +278,12 @@ public final class UrlImageViewHelper {
      *            called when the image successfully finishes loading. This
      *            value can be null.
      */
-    public static void setUrlDrawable(final ImageView imageView, final String url, final UrlImageViewCallback callback) {
-        setUrlDrawable(imageView.getContext(), imageView, url, null, CACHE_DURATION_THREE_DAYS, callback);
+    public static void setUrlDrawable(final ImageView imageView, final String url, final UrlImageViewCallback callback, boolean... useLargerPicture) {
+        setUrlDrawable(imageView.getContext(), imageView, url, null, CACHE_DURATION_THREE_DAYS, callback, useLargerPicture.length > 0 ? useLargerPicture[0] : false);
     }
 
-    public static void loadUrlDrawable(final Context context, final String url, final UrlImageViewCallback callback) {
-        setUrlDrawable(context, null, url, null, CACHE_DURATION_THREE_DAYS, callback);
+    public static void loadUrlDrawable(final Context context, final String url, final UrlImageViewCallback callback, boolean... useLargerPicture) {
+        setUrlDrawable(context, null, url, null, CACHE_DURATION_THREE_DAYS, callback, useLargerPicture.length > 0 ? useLargerPicture[0] : false);
     }
 
     /**
@@ -288,8 +301,8 @@ public final class UrlImageViewHelper {
      *            called when the image successfully finishes loading. This
      *            value can be null.
      */
-    public static void setUrlDrawable(final ImageView imageView, final String url, final Drawable defaultDrawable, final UrlImageViewCallback callback) {
-        setUrlDrawable(imageView.getContext(), imageView, url, defaultDrawable, CACHE_DURATION_THREE_DAYS, callback);
+    public static void setUrlDrawable(final ImageView imageView, final String url, final Drawable defaultDrawable, final UrlImageViewCallback callback, boolean... useLargerPicture) {
+        setUrlDrawable(imageView.getContext(), imageView, url, defaultDrawable, CACHE_DURATION_THREE_DAYS, callback, useLargerPicture.length > 0 ? useLargerPicture[0] : false);
     }
 
     /**
@@ -307,12 +320,12 @@ public final class UrlImageViewHelper {
      *            called when the image successfully finishes loading. This
      *            value can be null.
      */
-    public static void setUrlDrawable(final ImageView imageView, final String url, final int defaultResource, final long cacheDurationMs, final UrlImageViewCallback callback) {
-        setUrlDrawable(imageView.getContext(), imageView, url, defaultResource, cacheDurationMs, callback);
+    public static void setUrlDrawable(final ImageView imageView, final String url, final int defaultResource, final long cacheDurationMs, final UrlImageViewCallback callback, boolean... useLargerPicture) {
+        setUrlDrawable(imageView.getContext(), imageView, url, defaultResource, cacheDurationMs, callback, useLargerPicture.length > 0 ? useLargerPicture[0] : false);
     }
 
-    public static void loadUrlDrawable(final Context context, final String url, final long cacheDurationMs, final UrlImageViewCallback callback) {
-        setUrlDrawable(context, null, url, null, cacheDurationMs, callback);
+    public static void loadUrlDrawable(final Context context, final String url, final long cacheDurationMs, final UrlImageViewCallback callback, boolean... useLargerPicture) {
+        setUrlDrawable(context, null, url, null, cacheDurationMs, callback, useLargerPicture.length > 0 ? useLargerPicture[0] : false);
     }
 
     /**
@@ -332,8 +345,8 @@ public final class UrlImageViewHelper {
      *            called when the image successfully finishes loading. This
      *            value can be null.
      */
-    public static void setUrlDrawable(final ImageView imageView, final String url, final Drawable defaultDrawable, final long cacheDurationMs, final UrlImageViewCallback callback) {
-        setUrlDrawable(imageView.getContext(), imageView, url, defaultDrawable, cacheDurationMs, callback);
+    public static void setUrlDrawable(final ImageView imageView, final String url, final Drawable defaultDrawable, final long cacheDurationMs, final UrlImageViewCallback callback, boolean... useLargerPicture) {
+        setUrlDrawable(imageView.getContext(), imageView, url, defaultDrawable, cacheDurationMs, callback, useLargerPicture.length > 0 ? useLargerPicture[0] : false);
     }
 
     /**
@@ -353,12 +366,12 @@ public final class UrlImageViewHelper {
      *            called when the image successfully finishes loading. This
      *            value can be null.
      */
-    private static void setUrlDrawable(final Context context, final ImageView imageView, final String url, final int defaultResource, final long cacheDurationMs, final UrlImageViewCallback callback) {
+    private static void setUrlDrawable(final Context context, final ImageView imageView, final String url, final int defaultResource, final long cacheDurationMs, final UrlImageViewCallback callback, boolean useLargerPicture) {
         Drawable d = null;
         if (defaultResource != 0) {
             d = imageView.getResources().getDrawable(defaultResource);
         }
-        setUrlDrawable(context, imageView, url, d, cacheDurationMs, callback);
+        setUrlDrawable(context, imageView, url, d, cacheDurationMs, callback, useLargerPicture);
     }
 
     private static boolean isNullOrEmpty(final CharSequence s) {
@@ -411,11 +424,11 @@ public final class UrlImageViewHelper {
     public static void cleanup(final Context context) {
         cleanup(context, CACHE_DURATION_ONE_WEEK);
     }
-    
+
     private static boolean checkCacheDuration(File file, long cacheDurationMs) {
         return cacheDurationMs == CACHE_DURATION_INFINITE || System.currentTimeMillis() < file.lastModified() + cacheDurationMs;
     }
-    
+
     public static Bitmap getCachedBitmap(String url) {
         if (url == null)
             return null;
@@ -451,7 +464,7 @@ public final class UrlImageViewHelper {
      *            called when the image successfully finishes loading. This
      *            value can be null.
      */
-    private static void setUrlDrawable(final Context context, final ImageView imageView, final String url, final Drawable defaultDrawable, final long cacheDurationMs, final UrlImageViewCallback callback) {
+    private static void setUrlDrawable(final Context context, final ImageView imageView, final String url, final Drawable defaultDrawable, final long cacheDurationMs, final UrlImageViewCallback callback, final boolean useLargerPicture) {
         assert (Looper.getMainLooper().getThread() == Thread.currentThread()) : "setUrlDrawable and loadUrlDrawable should only be called from the main thread.";
         cleanup(context);
         // disassociate this ImageView from any pending downloads
@@ -579,7 +592,7 @@ public final class UrlImageViewHelper {
                     else {
                         targetFilename = existingFilename;
                     }
-                    result = loadBitmapFromStream(context, url, targetFilename, targetWidth, targetHeight);
+                    result = loadBitmapFromStream(context, url, targetFilename, targetWidth, targetHeight, useLargerPicture);
                 }
                 catch (final Exception ex) {
                     // always delete busted files when we throw.
@@ -663,21 +676,21 @@ public final class UrlImageViewHelper {
             catch (final Exception ex) {
             }
         }
-        
+
         for (UrlDownloader downloader: mDownloaders) {
             if (downloader.canDownloadUrl(url)) {
                 downloader.download(context, url, filename, loader, completion);
                 return;
             }
         }
-        
+
         imageView.setImageDrawable(defaultDrawable);
     }
 
     private static abstract class Loader implements UrlDownloader.UrlDownloaderCallback {
         Bitmap result;
     }
-    
+
     private static HttpUrlDownloader mHttpDownloader = new HttpUrlDownloader();
     private static ContentUrlDownloader mContentDownloader = new ContentUrlDownloader();
     private static ContactContentUrlDownloader mContactDownloader = new ContactContentUrlDownloader();
@@ -687,7 +700,7 @@ public final class UrlImageViewHelper {
     public static ArrayList<UrlDownloader> getDownloaders() {
         return mDownloaders;
     }
-    
+
     static {
         mDownloaders.add(mHttpDownloader);
         mDownloaders.add(mContactDownloader);
@@ -695,7 +708,7 @@ public final class UrlImageViewHelper {
         mDownloaders.add(mAssetDownloader);
         mDownloaders.add(mFileDownloader);
     }
-    
+
     public static interface RequestPropertiesCallback {
         public ArrayList<NameValuePair> getHeadersForRequest(Context context, String url);
     }
@@ -725,7 +738,7 @@ public final class UrlImageViewHelper {
      */
     public static Bitmap remove(String url) {
         new File(getFilenameForUrl(url)).delete();
-        
+
         Drawable drawable = mLiveCache.remove(url);
         if (drawable instanceof ZombieDrawable) {
             ZombieDrawable zombie = (ZombieDrawable)drawable;
@@ -733,10 +746,10 @@ public final class UrlImageViewHelper {
             zombie.headshot();
             return ret;
         }
-        
+
         return null;
     }
-    
+
     /***
      * ZombieDrawable refcounts Bitmaps by hooking the finalizer.
      *
@@ -759,10 +772,10 @@ public final class UrlImageViewHelper {
             mAllCache.add(bitmap);
             mDeadCache.remove(url);
             mLiveCache.put(url, this);
-            
+
             mBrains.mRefCounter++;
         }
-        
+
         public ZombieDrawable clone(Resources resources) {
             return new ZombieDrawable(mUrl, resources, getBitmap(), mBrains);
         }
